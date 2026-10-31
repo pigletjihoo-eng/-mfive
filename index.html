@@ -1,0 +1,779 @@
+```html
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>현실판 어몽어스 - 미션 진행도 트래커</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: #0b0e14;
+            color: #ffffff;
+            user-select: none;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        .font-game {
+            font-family: 'Orbitron', sans-serif;
+        }
+
+        /* Among Us Progress Bar Style */
+        .amongus-progress-bg {
+            background-color: #1a2332;
+            border: 3px solid #3a4b66;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.6);
+            transition: background-color 0.3s, border-color 0.3s;
+        }
+
+        .amongus-progress-fill {
+            background: linear-gradient(180deg, #38ef7d 0%, #11998e 100%);
+            box-shadow: 0 0 12px rgba(56, 239, 125, 0.6);
+            transition: width 0.3s ease-in-out;
+        }
+
+        /* Custom Glassmorphism Card */
+        .glass-panel {
+            background: rgba(22, 30, 46, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: background 0.3s, border-color 0.3s;
+        }
+
+        /* Light Theme Mode Overrides */
+        body.light-mode {
+            background-color: #f1f5f9;
+            color: #0f172a;
+        }
+
+        body.light-mode .glass-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-color: rgba(203, 213, 225, 0.8);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08);
+        }
+
+        body.light-mode .amongus-progress-bg {
+            background-color: #cbd5e1;
+            border-color: #94a3b8;
+        }
+
+        body.light-mode .text-slate-400 { color: #64748b; }
+        body.light-mode .text-slate-300 { color: #334155; }
+        body.light-mode .text-slate-200 { color: #1e293b; }
+        body.light-mode .bg-slate-900\/70 { background-color: #f8fafc; border-color: #e2e8f0; }
+        body.light-mode .bg-slate-900 { background-color: #ffffff; border-color: #cbd5e1; color: #0f172a; }
+        body.light-mode .bg-slate-800 { background-color: #e2e8f0; color: #0f172a; }
+        body.light-mode .border-slate-800, body.light-mode .border-slate-700 { border-color: #cbd5e1; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between items-center p-4 sm:p-6 overflow-x-hidden">
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-5 left-1/2 -translate-x-1/2 z-50 transition-all duration-300 opacity-0 pointer-events-none translate-y-[-20px] w-11/12 max-w-sm">
+        <div class="bg-emerald-500 text-slate-950 font-bold px-5 py-3 rounded-2xl shadow-2xl flex items-center justify-center gap-2 text-xs sm:text-sm border border-emerald-300 text-center">
+            <i data-lucide="check-circle-2" class="w-5 h-5 shrink-0"></i>
+            <span id="toast-message">알림 메시지</span>
+        </div>
+    </div>
+
+    <!-- MAIN CONTAINER -->
+    <div class="w-full max-w-md mx-auto my-auto flex flex-col justify-center">
+        
+        <!-- HEADER -->
+        <div class="relative text-center mb-5">
+            <!-- Top Right Settings Button -->
+            <button onclick="openSettingsModal()" class="absolute right-0 top-0 p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-2xl border border-slate-700 transition active:scale-95 shadow-md flex items-center justify-center" title="설정">
+                <i data-lucide="settings" class="w-5 h-5 text-emerald-400"></i>
+            </button>
+
+            <div class="inline-flex items-center justify-center p-3 bg-slate-800 rounded-2xl mb-2 border border-slate-700 shadow-inner">
+                <i data-lucide="rocket" class="w-7 h-7 text-emerald-400"></i>
+            </div>
+            <h1 class="text-3xl font-black tracking-wider text-emerald-400 font-game uppercase drop-shadow-md">
+                AMONG US
+            </h1>
+            <p class="text-slate-400 text-xs font-semibold tracking-widest mt-1">현실판 미션 진행도 트래커</p>
+        </div>
+
+        <!-- GAME CARD -->
+        <div class="glass-panel p-5 sm:p-6 rounded-3xl shadow-2xl border border-slate-700/60 flex flex-col items-center">
+            
+            <!-- Timer Bar & Controls -->
+            <div class="w-full mb-4 bg-slate-900/70 p-3 rounded-2xl border border-slate-800 space-y-2">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-2">
+                        <i data-lucide="flag" class="w-4 h-4 text-emerald-400"></i>
+                        <span id="display-round-title" class="text-xs font-bold text-slate-300">1라운드</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                        <span id="timer-display" class="font-game text-sm sm:text-base text-amber-400 font-bold tracking-wider">00:10:00</span>
+                    </div>
+                </div>
+                <!-- Main Quick Timer Controls -->
+                <div class="flex gap-2 pt-1">
+                    <button onclick="startTimer()" class="flex-1 py-1.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition active:scale-95 flex items-center justify-center gap-1">
+                        <i data-lucide="play" class="w-3.5 h-3.5 fill-slate-950"></i> 시작
+                    </button>
+                    <button onclick="pauseTimer()" class="flex-1 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-xl transition active:scale-95 flex items-center justify-center gap-1">
+                        <i data-lucide="pause" class="w-3.5 h-3.5 fill-slate-950"></i> 일시정지
+                    </button>
+                    <button onclick="resetTimer()" class="flex-1 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 font-bold text-xs rounded-xl transition active:scale-95 flex items-center justify-center gap-1">
+                        <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> 리셋
+                    </button>
+                </div>
+            </div>
+
+            <!-- MISSION PROGRESS DISPLAY -->
+            <div class="w-full mb-5 space-y-2">
+                <div class="flex justify-between items-end px-1">
+                    <span class="text-xs font-black tracking-widest text-slate-400 uppercase flex items-center gap-1.5">
+                        <i data-lucide="check-square" class="w-4 h-4 text-emerald-400"></i> 미션 진행도
+                    </span>
+                    <span id="display-progress-text" class="font-game text-2xl font-black text-emerald-400 drop-shadow">0 / 10</span>
+                </div>
+
+                <!-- Among Us Style Green Gauge -->
+                <div class="w-full h-7 amongus-progress-bg rounded-2xl p-1 overflow-hidden relative">
+                    <div id="progress-bar-fill" class="h-full amongus-progress-fill rounded-xl w-0"></div>
+                </div>
+            </div>
+
+            <!-- ALL TASKS COMPLETED BANNER -->
+            <div id="victory-banner" class="w-full mb-4 bg-emerald-500/20 border border-emerald-400/60 rounded-2xl p-3 text-center hidden">
+                <p class="text-xs sm:text-sm font-black text-emerald-300 flex items-center justify-center gap-1.5">
+                    <i data-lucide="party-popper" class="w-4 h-4 text-amber-400"></i>
+                    <span>미션 모두 완료! 임포스터를 조심하세요⚠️ :)</span>
+                </p>
+            </div>
+
+            <!-- MAIN BUTTONS -->
+            <div class="w-full space-y-3 mb-2">
+                <!-- MISSION SUCCESS BUTTON (+1) -->
+                <button onclick="increaseMission()" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black text-base sm:text-lg rounded-2xl shadow-lg hover:shadow-emerald-500/30 transition transform active:scale-95 flex items-center justify-center gap-2 border border-emerald-300">
+                    <i data-lucide="plus-circle" class="w-6 h-6"></i>
+                    <span>미션 성공! (+1)</span>
+                </button>
+
+                <!-- MISSION DECREASE BUTTON (-1) - UNLOCKED -->
+                <button onclick="decreaseMission()" class="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs sm:text-sm rounded-xl border border-slate-700 transition active:scale-95 flex items-center justify-center gap-1.5">
+                    <i data-lucide="minus-circle" class="w-4 h-4 text-rose-400"></i>
+                    <span>미션 차감 (-1)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- FOOTER -->
+    <div class="text-center text-[11px] text-slate-400 py-3 font-medium">
+        Among Us Task Tracker &bull; 4268 Admin Lock
+    </div>
+
+    <!-- SETTINGS / MANAGEMENT MODAL -->
+    <div id="settings-modal" onclick="handleModalBackdropClick(event)" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-panel w-full max-w-sm rounded-3xl p-5 sm:p-6 border border-slate-700 shadow-2xl relative max-h-[90vh] overflow-y-auto" onclick="event.stopPropagation()">
+            
+            <!-- Modal Header -->
+            <div class="flex justify-between items-center mb-5 border-b border-slate-700/60 pb-3">
+                <div class="flex items-center gap-2">
+                    <i data-lucide="sliders" class="w-5 h-5 text-emerald-400"></i>
+                    <h2 class="text-base font-bold text-emerald-400">설정 및 세부 관리</h2>
+                </div>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- BASIC SETTINGS (ALWAYS ACCESSIBLE) -->
+            <div class="space-y-4 mb-6">
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">기본 환경 설정</h3>
+                
+                <!-- Sound Volume Sliders -->
+                <div class="bg-slate-900/70 p-3 rounded-2xl border border-slate-800 space-y-3">
+                    <!-- General SFX Volume -->
+                    <div class="space-y-1">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400"></i> 미션 성공/차감 효과음
+                            </span>
+                            <span id="volume-label" class="font-game text-emerald-400 font-bold">50%</span>
+                        </div>
+                        <input type="range" id="volume-slider" min="0" max="100" value="50" oninput="updateVolume(this.value)" class="w-full accent-emerald-400 cursor-pointer">
+                    </div>
+
+                    <!-- Victory Sound Volume -->
+                    <div class="space-y-1 pt-1 border-t border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                <i data-lucide="party-popper" class="w-4 h-4 text-amber-400"></i> 최종 완료 효과음(박수)
+                            </span>
+                            <span id="clap-volume-label" class="font-game text-amber-400 font-bold">20%</span>
+                        </div>
+                        <input type="range" id="clap-volume-slider" min="0" max="100" value="20" oninput="updateClapVolume(this.value)" class="w-full accent-amber-400 cursor-pointer">
+                    </div>
+
+                    <!-- Timer End Sound Volume -->
+                    <div class="space-y-1 pt-1 border-t border-slate-800">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-slate-300 font-semibold flex items-center gap-1.5">
+                                <i data-lucide="bell-ring" class="w-4 h-4 text-rose-400"></i> 라운드 종료 효과음
+                            </span>
+                            <span id="timer-volume-label" class="font-game text-rose-400 font-bold">50%</span>
+                        </div>
+                        <input type="range" id="timer-volume-slider" min="0" max="100" value="50" oninput="updateTimerVolume(this.value)" class="w-full accent-rose-400 cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- Theme Switcher (Dark / Light) -->
+                <div class="bg-slate-900/70 p-3 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <span class="text-xs text-slate-300 font-semibold flex items-center gap-1.5">
+                        <i data-lucide="sun-moon" class="w-4 h-4 text-emerald-400"></i> 화면 테마
+                    </span>
+                    <button onclick="toggleTheme()" id="theme-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl border border-slate-700 flex items-center gap-1 transition">
+                        <span id="theme-text">라이트 모드</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- LOCKED ADVANCED SETTINGS SECTION -->
+            <div class="border-t border-slate-700/60 pt-4 space-y-4">
+                <div class="flex justify-between items-center">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                        <i data-lucide="lock" class="w-3.5 h-3.5 text-amber-400"></i> 세부 관리 (비밀번호)
+                    </h3>
+                    <span id="lock-badge" class="text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded-full font-bold border border-rose-500/30">잠김</span>
+                </div>
+
+                <!-- PASSWORD INPUT FORM (Shown when locked) -->
+                <div id="password-form" class="bg-slate-900/80 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                    <p class="text-xs text-slate-400">관리자 비밀번호를 입력하세요.</p>
+                    <div class="flex gap-2">
+                        <input type="password" id="admin-pass-input" placeholder="비밀번호" class="w-full bg-slate-800 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400">
+                        <button onclick="unlockAdmin()" class="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl shrink-0 transition">
+                            해제
+                        </button>
+                    </div>
+                </div>
+
+                <!-- UNLOCKED CONTENT (Hidden by default) -->
+                <div id="unlocked-content" class="space-y-4 hidden">
+                    
+                    <!-- Relock Button -->
+                    <div class="flex justify-end">
+                        <button onclick="lockAdmin()" class="px-3 py-1.5 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-bold rounded-xl transition flex items-center gap-1">
+                            <i data-lucide="lock" class="w-3.5 h-3.5"></i> 세부 설정 다시 잠그기
+                        </button>
+                    </div>
+
+                    <!-- Round & Max Mission Adjustment -->
+                    <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-semibold text-slate-300">현재 라운드</span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="adjustRound(-1)" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 font-bold text-xs">-</button>
+                                <span id="admin-round-text" class="font-game text-sm text-emerald-400 font-bold">1라운드</span>
+                                <button onclick="adjustRound(1)" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 font-bold text-xs">+</button>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-semibold text-slate-300">목표 총 미션 수</span>
+                            <div class="flex items-center gap-2">
+                                <button onclick="adjustMaxTasks(-1)" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 font-bold text-xs">-</button>
+                                <span id="admin-max-text" class="font-game text-sm text-emerald-400 font-bold">10개</span>
+                                <button onclick="adjustMaxTasks(1)" class="w-7 h-7 bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 font-bold text-xs">+</button>
+                            </div>
+                        </div>
+
+                        <button onclick="fullResetGame()" class="w-full py-2 bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 font-bold text-xs rounded-xl transition flex items-center justify-center gap-1 mt-1">
+                            <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i> 진행도/라운드 전체 초기화
+                        </button>
+                    </div>
+
+                    <!-- Toast Display Duration (Seconds) -->
+                    <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-300 block">알림창 노출 시간 (초 단위)</label>
+                        <div class="flex gap-2 items-center">
+                            <input type="number" id="toast-duration-input" min="1" max="60" value="7" class="w-full bg-slate-800 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400">
+                            <button onclick="saveToastDuration()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold rounded-xl shrink-0">저장</button>
+                        </div>
+                    </div>
+
+                    <!-- Custom Success Message Pattern -->
+                    <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-1.5">
+                        <label class="text-xs font-semibold text-slate-300 block">성공 안내 문구 설정</label>
+                        <p class="text-[10px] text-slate-400">{round}=라운드, {count}=성공개수</p>
+                        <input type="text" id="toast-template-input" value="{round} 미션 {count}개 성공! 단체채팅방에 스크린샷을 하여 보내세요!:)" class="w-full bg-slate-800 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400">
+                        <button onclick="saveToastTemplate()" class="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold rounded-xl mt-1">문구 저장</button>
+                    </div>
+
+                    <!-- Timer Config (Hours, Minutes, Seconds) - Protected in Admin -->
+                    <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                        <label class="text-xs font-semibold text-slate-300 block">라운드 제한 시간 변경 (시/분/초)</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <div>
+                                <span class="text-[10px] text-slate-400">시간</span>
+                                <input type="number" id="timer-h" min="0" value="0" class="w-full bg-slate-800 text-white text-xs p-2 rounded-xl border border-slate-700 text-center">
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400">분</span>
+                                <input type="number" id="timer-m" min="0" max="59" value="10" class="w-full bg-slate-800 text-white text-xs p-2 rounded-xl border border-slate-700 text-center">
+                            </div>
+                            <div>
+                                <span class="text-[10px] text-slate-400">초</span>
+                                <input type="number" id="timer-s" min="0" max="59" value="0" class="w-full bg-slate-800 text-white text-xs p-2 rounded-xl border border-slate-700 text-center">
+                            </div>
+                        </div>
+                        <button onclick="applyTimerSettings()" class="w-full py-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs rounded-xl transition">
+                            타이머 시간 설정 적용
+                        </button>
+                    </div>
+
+                    <!-- Password Change Section -->
+                    <div class="bg-slate-900/70 p-3.5 rounded-2xl border border-slate-800 space-y-2">
+                        <label class="text-xs font-semibold text-slate-300 block">비밀번호 변경</label>
+                        <div class="flex gap-2">
+                            <input type="password" id="new-pass-input" placeholder="새 비밀번호" class="w-full bg-slate-800 text-white text-xs px-3 py-2 rounded-xl border border-slate-700 focus:outline-none focus:border-emerald-400">
+                            <button onclick="changeAdminPassword()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-slate-700 text-xs font-bold rounded-xl shrink-0">변경</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Game State Variables
+        let completedTasks = 0;
+        let maxTasks = 10;
+        let currentRound = 1;
+        let adminPassword = "4268";
+        let isAdminUnlocked = false;
+
+        let soundVolume = 0.5;
+        let clapVolume = 0.2; // Default lowered clap volume
+        let timerVolume = 0.5; // Timer end sound volume
+        let isLightMode = false;
+        let toastDurationSec = 7;
+        let toastTemplate = "{round} 미션 {count}개 성공! 단체채팅방에 스크린샷을 하여 보내세요!:)";
+
+        // Sound Volume Update Functions
+        function updateVolume(val) {
+            soundVolume = parseInt(val) / 100;
+            document.getElementById('volume-label').innerText = `${val}%`;
+        }
+
+        function updateClapVolume(val) {
+            clapVolume = parseInt(val) / 100;
+            document.getElementById('clap-volume-label').innerText = `${val}%`;
+        }
+
+        function updateTimerVolume(val) {
+            timerVolume = parseInt(val) / 100;
+            document.getElementById('timer-volume-label').innerText = `${val}%`;
+        }
+
+        // Light / Dark Theme Toggle Function
+        function toggleTheme() {
+            isLightMode = !isLightMode;
+            const themeText = document.getElementById('theme-text');
+            if (isLightMode) {
+                document.body.classList.add('light-mode');
+                themeText.innerText = "다크 모드";
+            } else {
+                document.body.classList.remove('light-mode');
+                themeText.innerText = "라이트 모드";
+            }
+        }
+
+        // Timer Variables
+        let timerSecondsTotal = 600; // 10 mins default
+        let timerRemaining = 600;
+        let timerInterval = null;
+
+        // Audio Context Synthesizer for SFX
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        // Play Beep SFX
+        function playSuccessSound() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+                osc.frequency.setValueAtTime(880, ctx.currentTime + 0.08); // A5
+
+                gain.gain.setValueAtTime(0.3 * soundVolume, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 0.35);
+            } catch (e) {
+                console.log('Audio playback prevented');
+            }
+        }
+
+        // Play Decrease SFX (-1)
+        function playDecreaseSound() {
+            try {
+                const ctx = getAudioContext();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(440, ctx.currentTime); // A4
+                osc.frequency.setValueAtTime(293.66, ctx.currentTime + 0.08); // D4
+
+                gain.gain.setValueAtTime(0.25 * soundVolume, ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                osc.start();
+                osc.stop(ctx.currentTime + 0.3);
+            } catch (e) {
+                console.log('Audio playback prevented');
+            }
+        }
+
+        // Play Soft Applause SFX
+        function playClapSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+                
+                // Synthesize soft applause using noise buffer
+                const bufferSize = ctx.sampleRate * 1.5;
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 1000;
+
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.15 * clapVolume, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+
+                noise.start(now);
+            } catch (e) {
+                console.log('Audio playback prevented');
+            }
+        }
+
+        // Play Timer Alarm SFX (3-beep pattern repeated 3 times)
+        function playTimerAlarmSound() {
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                // Play 3 triplets (total 9 beeps across 3 bursts)
+                [0, 1.0, 2.0].forEach((burstOffset) => {
+                    [0, 0.2, 0.4].forEach((delay) => {
+                        const time = now + burstOffset + delay;
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(880, time); // A5
+                        osc.frequency.setValueAtTime(1046.50, time + 0.08); // C6
+
+                        gain.gain.setValueAtTime(0.3 * timerVolume, time);
+                        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.16);
+
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+
+                        osc.start(time);
+                        osc.stop(time + 0.16);
+                    });
+                });
+            } catch (e) {
+                console.log('Audio playback prevented');
+            }
+        }
+
+        // Render UI Updates
+        function updateUI() {
+            document.getElementById('display-progress-text').innerText = `${completedTasks} / ${maxTasks}`;
+            
+            const percentage = Math.min(100, Math.max(0, (completedTasks / maxTasks) * 100));
+            document.getElementById('progress-bar-fill').style.width = `${percentage}%`;
+
+            const victoryBanner = document.getElementById('victory-banner');
+            if (completedTasks >= maxTasks && maxTasks > 0) {
+                victoryBanner.classList.remove('hidden');
+            } else {
+                victoryBanner.classList.add('hidden');
+            }
+
+            document.getElementById('display-round-title').innerText = `${currentRound}라운드`;
+            document.getElementById('admin-round-text').innerText = `${currentRound}라운드`;
+            document.getElementById('admin-max-text').innerText = `${maxTasks}개`;
+
+            updateTimerDisplay();
+        }
+
+        // Toast Message Notification
+        let toastTimeout = null;
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toast-message');
+
+            toastMsg.innerText = msg;
+            toast.classList.remove('opacity-0', 'pointer-events-none', 'translate-y-[-20px]');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            if (toastTimeout) clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', 'pointer-events-none', 'translate-y-[-20px]');
+            }, toastDurationSec * 1000);
+        }
+
+        // Mission Increase (+1)
+        function increaseMission() {
+            if (completedTasks < maxTasks) {
+                completedTasks++;
+                updateUI();
+                playSuccessSound();
+
+                if (completedTasks === maxTasks) {
+                    playClapSound();
+                } else {
+                    const formattedMsg = toastTemplate
+                        .replace('{round}', `${currentRound}라운드`)
+                        .replace('{count}', completedTasks);
+                    showToast(formattedMsg);
+                }
+            } else {
+                showToast("이미 모든 미션을 완료했습니다!");
+            }
+        }
+
+        // Mission Decrease (-1)
+        function decreaseMission() {
+            if (completedTasks > 0) {
+                completedTasks--;
+                updateUI();
+                playDecreaseSound();
+                showToast(`미션 진행도가 차감되었습니다. (${completedTasks}/${maxTasks})`);
+            }
+        }
+
+        // Settings Modal Open/Close
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            // Automatically lock admin access when closing settings modal
+            if (isAdminUnlocked) {
+                lockAdmin();
+            }
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function handleModalBackdropClick(event) {
+            if (event.target.id === 'settings-modal') {
+                closeSettingsModal();
+            }
+        }
+
+        // Password Unlock & Lock
+        function unlockAdmin() {
+            const inputPass = document.getElementById('admin-pass-input').value;
+            if (inputPass === adminPassword) {
+                isAdminUnlocked = true;
+                document.getElementById('password-form').classList.add('hidden');
+                document.getElementById('unlocked-content').classList.remove('hidden');
+                document.getElementById('lock-badge').innerText = "해제됨";
+                document.getElementById('lock-badge').className = "text-[10px] px-2 py-0.5 bg-emerald-500/20 text-emerald-300 rounded-full font-bold border border-emerald-500/30";
+                showToast("세부 관리 잠금이 해제되었습니다.");
+            } else {
+                showToast("비밀번호가 일치하지 않습니다!");
+            }
+        }
+
+        function lockAdmin() {
+            isAdminUnlocked = false;
+            document.getElementById('admin-pass-input').value = '';
+            document.getElementById('password-form').classList.remove('hidden');
+            document.getElementById('unlocked-content').classList.add('hidden');
+            document.getElementById('lock-badge').innerText = "잠김";
+            document.getElementById('lock-badge').className = "text-[10px] px-2 py-0.5 bg-rose-500/20 text-rose-300 rounded-full font-bold border border-rose-500/30";
+            showToast("세부 관리가 다시 잠겼습니다.");
+        }
+
+        // Adjust Round Number
+        function adjustRound(delta) {
+            currentRound = Math.max(1, currentRound + delta);
+            updateUI();
+        }
+
+        // Adjust Max Tasks
+        function adjustMaxTasks(delta) {
+            maxTasks = Math.max(1, maxTasks + delta);
+            if (completedTasks > maxTasks) completedTasks = maxTasks;
+            updateUI();
+        }
+
+        // Full Reset Game State
+        function fullResetGame() {
+            completedTasks = 0;
+            currentRound = 1;
+            maxTasks = 10;
+            resetTimer();
+            updateUI();
+            showToast("진행도, 라운드 및 미션 수가 초기화되었습니다.");
+        }
+
+        // Save Toast Settings
+        function saveToastDuration() {
+            const val = parseInt(document.getElementById('toast-duration-input').value) || 7;
+            toastDurationSec = Math.max(1, val);
+            showToast(`알림 노출 시간이 ${toastDurationSec}초로 설정되었습니다.`);
+        }
+
+        function saveToastTemplate() {
+            const val = document.getElementById('toast-template-input').value;
+            if (val.trim() !== '') {
+                toastTemplate = val;
+                showToast("성공 안내 문구가 저장되었습니다.");
+            }
+        }
+
+        // Change Password
+        function changeAdminPassword() {
+            const newPass = document.getElementById('new-pass-input').value;
+            if (newPass.trim().length >= 1) {
+                adminPassword = newPass.trim();
+                document.getElementById('new-pass-input').value = '';
+                showToast("비밀번호가 변경되었습니다.");
+            } else {
+                showToast("올바른 비밀번호를 입력해주세요.");
+            }
+        }
+
+        // Timer Functions
+        function updateTimerDisplay() {
+            const h = Math.floor(timerRemaining / 3600);
+            const m = Math.floor((timerRemaining % 3600) / 60);
+            const s = timerRemaining % 60;
+
+            const pad = (num) => String(num).padStart(2, '0');
+            document.getElementById('timer-display').innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
+        }
+
+        function applyTimerSettings() {
+            const h = parseInt(document.getElementById('timer-h').value) || 0;
+            const m = parseInt(document.getElementById('timer-m').value) || 0;
+            const s = parseInt(document.getElementById('timer-s').value) || 0;
+
+            const total = h * 3600 + m * 60 + s;
+            if (total <= 0) {
+                showToast("1초 이상의 시간을 설정해주세요.");
+                return;
+            }
+
+            timerSecondsTotal = total;
+            timerRemaining = total;
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            updateTimerDisplay();
+            showToast(`타이머가 ${h > 0 ? h + '시간 ' : ''}${m}분 ${s}초로 설정되었습니다.`);
+        }
+
+        function startTimer() {
+            if (timerInterval) return; // Already running
+
+            if (timerRemaining <= 0) {
+                timerRemaining = timerSecondsTotal;
+            }
+
+            timerInterval = setInterval(() => {
+                if (timerRemaining > 0) {
+                    timerRemaining--;
+                    updateTimerDisplay();
+                } else {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    
+                    // Play Timer Alarm Sound on Expiration
+                    playTimerAlarmSound();
+                    
+                    showToast("라운드 시간이 종료되었습니다!");
+                }
+            }, 1000);
+
+            showToast("타이머가 시작되었습니다.");
+        }
+
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                showToast("타이머가 일시정지되었습니다.");
+            }
+        }
+
+        function resetTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerRemaining = timerSecondsTotal;
+            updateTimerDisplay();
+            showToast("타이머가 리셋되었습니다.");
+        }
+
+        // Initialize App on Page Load
+        window.addEventListener('DOMContentLoaded', () => {
+            if (window.lucide) {
+                lucide.createIcons();
+            }
+            updateUI();
+        });
+    </script>
+</body>
+</html>
+```
